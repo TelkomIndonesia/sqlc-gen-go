@@ -22,11 +22,15 @@ type {{.Ret.Type}} struct { {{- range .Ret.Struct.Fields}}
 {{if eq .Cmd ":one"}}
 {{range .Comments}}//{{.}}
 {{end -}}
-func (q *Queries) {{.MethodName}}(ctx context.Context, {{ dbarg }} {{.Arg.Pair}}) ({{.Ret.DefineType}}, error) {
+func (q *Queries) {{.MethodName}}(ctx context.Context, {{ dbarg }} {{.Arg.Pair}} {{if ne .Arg.Pair "" }},{{end}} {{ .Ret.Name }}OptionalInitFunc func(*{{.Ret.DefineType}})) ({{.Ret.DefineType}}, error) {
     {{- template "queryCodeStdExec" . }}
 	{{- if or (ne .Arg.Pair .Ret.Pair) (ne .Arg.DefineType .Ret.DefineType) }}
 	var {{.Ret.Name}} {{.Ret.Type}}
 	{{- end}}
+    if {{ .Ret.Name }}OptionalInitFunc != nil {
+        {{ .Ret.Name }}OptionalInitFunc(&{{.Ret.ReturnName}})
+    }
+
 	err := row.Scan({{.Ret.Scan}})
 	return {{.Ret.ReturnName}}, err
 }
@@ -35,7 +39,7 @@ func (q *Queries) {{.MethodName}}(ctx context.Context, {{ dbarg }} {{.Arg.Pair}}
 {{if eq .Cmd ":many"}}
 {{range .Comments}}//{{.}}
 {{end -}}
-func (q *Queries) {{.MethodName}}(ctx context.Context, {{ dbarg }} {{.Arg.Pair}}) ([]{{.Ret.DefineType}}, error) {
+func (q *Queries) {{.MethodName}}(ctx context.Context, {{ dbarg }} {{.Arg.Pair}} {{if ne .Arg.Pair "" }},{{end}} {{ .Ret.Name }}OptionalInitFunc func(*{{.Ret.DefineType}}), {{ .Ret.Name }}OptionalFilterFunc func({{.Ret.DefineType}}) bool) ([]{{.Ret.DefineType}}, error) {
     {{- template "queryCodeStdExec" . }}
     if err != nil {
         return nil, err
@@ -47,9 +51,17 @@ func (q *Queries) {{.MethodName}}(ctx context.Context, {{ dbarg }} {{.Arg.Pair}}
     var items []{{.Ret.DefineType}}
     {{end -}}
     for rows.Next() {
-        var {{.Ret.Name}} {{.Ret.Type}}
+        var {{.Ret.Name}} {{.Ret.Type}} 
+        if {{ .Ret.Name }}OptionalInitFunc != nil {
+            {{ .Ret.Name }}OptionalInitFunc(&{{.Ret.ReturnName}})
+        }
+        
         if err := rows.Scan({{.Ret.Scan}}); err != nil {
             return nil, err
+        }
+
+        if {{ .Ret.Name }}OptionalFilterFunc != nil && !{{ .Ret.Name }}OptionalFilterFunc({{.Ret.ReturnName}}) {
+            continue
         }
         items = append(items, {{.Ret.ReturnName}})
     }

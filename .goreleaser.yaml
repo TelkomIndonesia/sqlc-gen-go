@@ -1,0 +1,7 @@
+builds:
+  - id: wasm
+    main: ./plugin
+    goos: ["wasip1"]
+    goarch: ["wasm"]
+archives:
+  - format: binary
