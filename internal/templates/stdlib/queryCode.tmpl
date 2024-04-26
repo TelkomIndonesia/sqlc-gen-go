@@ -39,7 +39,7 @@ func (q *Queries) {{.MethodName}}(ctx context.Context, {{ dbarg }} {{.Arg.Pair}}
 {{if eq .Cmd ":many"}}
 {{range .Comments}}//{{.}}
 {{end -}}
-func (q *Queries) {{.MethodName}}(ctx context.Context, {{ dbarg }} {{.Arg.Pair}} {{if ne .Arg.Pair "" }},{{end}} {{ .Ret.Name }}OptionalInitFunc func(*{{.Ret.DefineType}}), {{ .Ret.Name }}OptionalFilterFunc func({{.Ret.DefineType}}) bool) ([]{{.Ret.DefineType}}, error) {
+func (q *Queries) {{.MethodName}}(ctx context.Context, {{ dbarg }} {{.Arg.Pair}} {{if ne .Arg.Pair "" }},{{end}} {{ .Ret.Name }}OptionalInitFunc func(*{{.Ret.DefineType}}), {{ .Ret.Name }}OptionalFilterFunc func({{.Ret.DefineType}}) (bool,error)) ([]{{.Ret.DefineType}}, error) {
     {{- template "queryCodeStdExec" . }}
     if err != nil {
         return nil, err
@@ -60,9 +60,16 @@ func (q *Queries) {{.MethodName}}(ctx context.Context, {{ dbarg }} {{.Arg.Pair}}
             return nil, err
         }
 
-        if {{ .Ret.Name }}OptionalFilterFunc != nil && !{{ .Ret.Name }}OptionalFilterFunc({{.Ret.ReturnName}}) {
-            continue
+        if {{ .Ret.Name }}OptionalFilterFunc != nil { 
+            add, err := {{ .Ret.Name }}OptionalFilterFunc({{.Ret.ReturnName}})
+            if err != nil {
+                return nil, err 
+            }
+            if !add {
+                continue
+            }
         }
+        
         items = append(items, {{.Ret.ReturnName}})
     }
     if err := rows.Close(); err != nil {
